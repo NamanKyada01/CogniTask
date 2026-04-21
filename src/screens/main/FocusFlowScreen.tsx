@@ -3,25 +3,31 @@ import {View, StyleSheet, Dimensions} from 'react-native';
 import {Text, Button, IconButton, Surface} from 'react-native-paper';
 import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
 
+import CircularProgress from 'react-native-circular-progress-indicator';
+import {useAuth} from '../../context/AuthContext';
+import {DatabaseService} from '../../services/database';
+
 const {width} = Dimensions.get('window');
 const TIMER_SIZE = width * 0.7;
 
 const FocusFlowScreen = () => {
+  const {user} = useAuth();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
   const [isActive, setIsActive] = useState(false);
   const [sound, setSound] = useState('Lo-fi');
 
-  useEffect(() => {
-    let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(t => t - 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
+  const handleFinish = async () => {
+    setIsActive(false);
+    if (user) {
+      await DatabaseService.addFocusSession(user.uid, {
+        userId: user.uid,
+        startTime: DatabaseService.serverTimestamp(), // I should add this to service
+        endTime: DatabaseService.serverTimestamp(),
+        duration: 25,
+        xpAwarded: 100,
+      });
     }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -36,9 +42,23 @@ const FocusFlowScreen = () => {
       </View>
 
       <View style={styles.timerContainer}>
-        <Surface style={styles.timerCircle} elevation={2}>
-          <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
-        </Surface>
+        <CircularProgress
+          value={timeLeft}
+          radius={TIMER_SIZE / 2}
+          duration={1000}
+          textColor={COLORS.onSurface}
+          maxValue={25 * 60}
+          title={'Remaining'}
+          titleColor={COLORS.onSurfaceVariant}
+          titleStyle={{fontFamily: 'Inter-SemiBold', fontSize: 12}}
+          activeStrokeColor={COLORS.primary}
+          inActiveStrokeColor={COLORS.surfaceHigh}
+          inActiveStrokeWidth={20}
+          activeStrokeWidth={20}
+          valueSuffix={''}
+          onAnimationComplete={timeLeft === 0 ? handleFinish : undefined}
+          formatValue={(val) => formatTime(val)}
+        />
         <Text variant="bodyLarge" style={styles.statusText}>
           {isActive ? 'Keep pushing, Alex' : 'Ready to dive in?'}
         </Text>

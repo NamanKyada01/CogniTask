@@ -4,6 +4,8 @@ import {Task, UserProfile, FocusSession} from '../types';
 const USERS_COLLECTION = 'users';
 
 export const DatabaseService = {
+  serverTimestamp: () => firestore.FieldValue.serverTimestamp(),
+  
   // --- User Profile ---
   getUserProfile: async (userId: string): Promise<UserProfile | null> => {
     const doc = await firestore().collection(USERS_COLLECTION).doc(userId).get();

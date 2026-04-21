@@ -7,6 +7,9 @@ import {COLORS} from '../theme/tokens';
 import DashboardScreen from '../screens/main/DashboardScreen';
 import TaskManagerScreen from '../screens/main/TaskManagerScreen';
 import FocusFlowScreen from '../screens/main/FocusFlowScreen';
+import CalendarScreen from '../screens/main/CalendarScreen';
+import RewardsScreen from '../screens/main/RewardsScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,10 +39,10 @@ const MainTabNavigator = () => {
       })}>
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Tasks" component={TaskManagerScreen} />
-      {/* Placeholders for now */}
-      <Tab.Screen name="Focus" component={FocusFlowScreen} /> 
-      <Tab.Screen name="Calendar" component={DashboardScreen} />
-      <Tab.Screen name="Rewards" component={DashboardScreen} />
+      <Tab.Screen name="Focus" component={FocusFlowScreen} />
+      <Tab.Screen name="Calendar" component={CalendarScreen} />
+      <Tab.Screen name="Rewards" component={RewardsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
