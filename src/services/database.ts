@@ -9,7 +9,7 @@ export const DatabaseService = {
   // --- User Profile ---
   getUserProfile: async (userId: string): Promise<UserProfile | null> => {
     const doc = await firestore().collection(USERS_COLLECTION).doc(userId).get();
-    return doc.exists ? (doc.data() as UserProfile) : null;
+    return doc.exists() ? (doc.data() as UserProfile) : null;
   },
 
   updateXP: async (userId: string, xpToAdd: number) => {

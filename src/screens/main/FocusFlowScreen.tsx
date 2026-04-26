@@ -1,6 +1,6 @@
-import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, Dimensions} from 'react-native';
-import {Text, Button, IconButton, Surface} from 'react-native-paper';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, StyleSheet, Dimensions, Animated} from 'react-native';
+import {Text, Button, IconButton} from 'react-native-paper';
 import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
 
 import CircularProgress from 'react-native-circular-progress-indicator';
@@ -12,17 +12,91 @@ const TIMER_SIZE = width * 0.7;
 
 const FocusFlowScreen = () => {
   const {user} = useAuth();
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [sound, setSound] = useState('Lo-fi');
+
+  // Entrance animation
+  const entranceAnim = useRef(new Animated.Value(0)).current;
+  // Pulsing glow ring
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
+  // Controls slide-up
+  const controlsAnim = useRef(new Animated.Value(40)).current;
+  const controlsOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Entrance sequence
+    Animated.sequence([
+      Animated.timing(entranceAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(controlsOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(controlsAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
+
+  // Pulse loop when active
+  useEffect(() => {
+    let pulseLoop: Animated.CompositeAnimation;
+    if (isActive) {
+      pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1.08,
+              duration: 900,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowOpacity, {
+              toValue: 0.7,
+              duration: 900,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 900,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowOpacity, {
+              toValue: 0.3,
+              duration: 900,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      );
+      pulseLoop.start();
+    } else {
+      Animated.parallel([
+        Animated.timing(pulseAnim, {toValue: 1, duration: 300, useNativeDriver: true}),
+        Animated.timing(glowOpacity, {toValue: 0.3, duration: 300, useNativeDriver: true}),
+      ]).start();
+    }
+    return () => pulseLoop?.stop();
+  }, [isActive]);
 
   const handleFinish = async () => {
     setIsActive(false);
     if (user) {
       await DatabaseService.addFocusSession(user.uid, {
         userId: user.uid,
-        startTime: DatabaseService.serverTimestamp(), // I should add this to service
-        endTime: DatabaseService.serverTimestamp(),
+        startTime: DatabaseService.serverTimestamp() as any,
+        endTime: DatabaseService.serverTimestamp() as any,
         duration: 25,
         xpAwarded: 100,
       });
@@ -37,16 +111,28 @@ const FocusFlowScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* Header */}
+      <Animated.View style={[styles.header, {opacity: entranceAnim}]}>
         <Text variant="headlineMedium" style={styles.title}>Focus Flow</Text>
-      </View>
+      </Animated.View>
 
-      <View style={styles.timerContainer}>
+      {/* Timer with pulsing glow ring */}
+      <Animated.View style={[styles.timerContainer, {opacity: entranceAnim}]}>
+        {/* Glow ring behind the circular progress */}
+        <Animated.View
+          style={[
+            styles.glowRing,
+            {
+              transform: [{scale: pulseAnim}],
+              opacity: glowOpacity,
+            },
+          ]}
+        />
         <CircularProgress
           value={timeLeft}
           radius={TIMER_SIZE / 2}
           duration={1000}
-          textColor={COLORS.onSurface}
+          progressValueColor={COLORS.onSurface}
           maxValue={25 * 60}
           title={'Remaining'}
           titleColor={COLORS.onSurfaceVariant}
@@ -57,14 +143,20 @@ const FocusFlowScreen = () => {
           activeStrokeWidth={20}
           valueSuffix={''}
           onAnimationComplete={timeLeft === 0 ? handleFinish : undefined}
-          formatValue={(val) => formatTime(val)}
+          progressFormatter={(val: number) => {
+            'worklet';
+            const mins = Math.floor(val / 60);
+            const secs = Math.floor(val % 60);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          }}
         />
         <Text variant="bodyLarge" style={styles.statusText}>
-          {isActive ? 'Keep pushing, Alex' : 'Ready to dive in?'}
+          {isActive ? 'Keep pushing, you got this' : 'Ready to dive in?'}
         </Text>
-      </View>
+      </Animated.View>
 
-      <View style={styles.audioSection}>
+      {/* Soundscape selector */}
+      <Animated.View style={[styles.audioSection, {opacity: entranceAnim}]}>
         <Text variant="labelLarge" style={styles.audioTitle}>AMBIENT SOUNDSCAPE</Text>
         <View style={styles.audioRow}>
           {['White Noise', 'Lo-fi', 'Rain'].map(s => (
@@ -78,9 +170,17 @@ const FocusFlowScreen = () => {
             </Button>
           ))}
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.controls}>
+      {/* Controls */}
+      <Animated.View
+        style={[
+          styles.controls,
+          {
+            opacity: controlsOpacity,
+            transform: [{translateY: controlsAnim}],
+          },
+        ]}>
         <IconButton
           icon={isActive ? 'pause' : 'play'}
           mode="contained"
@@ -89,14 +189,17 @@ const FocusFlowScreen = () => {
           size={56}
           onPress={() => setIsActive(!isActive)}
         />
-        <Button 
-          mode="text" 
-          textColor={COLORS.error} 
-          onPress={() => setTimeLeft(25 * 60)}
+        <Button
+          mode="text"
+          textColor={COLORS.error}
+          onPress={() => {
+            setIsActive(false);
+            setTimeLeft(25 * 60);
+          }}
           style={styles.breakButton}>
           Break Out
         </Button>
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -118,26 +221,23 @@ const styles = StyleSheet.create({
   },
   timerContainer: {
     alignItems: 'center',
+    position: 'relative',
   },
-  timerCircle: {
-    width: TIMER_SIZE,
-    height: TIMER_SIZE,
-    borderRadius: TIMER_SIZE / 2,
-    borderWidth: 4,
-    borderColor: COLORS.primaryContainer,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceLow,
+  glowRing: {
+    position: 'absolute',
+    width: TIMER_SIZE + 40,
+    height: TIMER_SIZE + 40,
+    borderRadius: (TIMER_SIZE + 40) / 2,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
     shadowColor: COLORS.hyperBlue,
     shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.3,
+    shadowOpacity: 1,
     shadowRadius: 20,
-    elevation: 10,
-  },
-  timerText: {
-    fontSize: 64,
-    color: COLORS.onSurface,
-    fontFamily: 'Manrope-Bold',
+    elevation: 0,
+    top: -20,
+    left: -20,
   },
   statusText: {
     marginTop: SPACING.lg,

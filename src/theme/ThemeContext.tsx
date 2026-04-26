@@ -26,7 +26,7 @@ const theme = {
     onBackground: COLORS.onSurface,
     surface: COLORS.surface,
     onSurface: COLORS.onSurface,
-    surfaceVariant: COLORS.surfaceVariant,
+    surfaceVariant: COLORS.surfaceHighest,
     onSurfaceVariant: COLORS.onSurfaceVariant,
     outline: COLORS.outline,
     outlineVariant: COLORS.outlineVariant,

@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated} from 'react-native';
 import {Text, TextInput, Button} from 'react-native-paper';
 import {useTranslation} from 'react-i18next';
 import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
@@ -13,6 +13,33 @@ const RegisterScreen = ({navigation}: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Animation values
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(formAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
 
   const handleRegister = async () => {
     if (!email || !password || !firstName) return;
@@ -42,12 +69,19 @@ const RegisterScreen = ({navigation}: any) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
+        <Animated.View style={[styles.header, {opacity: headerAnim}]}>
           <Text variant="displaySmall" style={styles.title}>Join CogniTask</Text>
           <Text variant="bodyMedium" style={styles.tagline}>Create your premium productivity engine.</Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.form}>
+        <Animated.View
+          style={[
+            styles.form,
+            {
+              opacity: formAnim,
+              transform: [{translateY: slideAnim}],
+            },
+          ]}>
           <TextInput
             label="First Name"
             value={firstName}
@@ -111,7 +145,7 @@ const RegisterScreen = ({navigation}: any) => {
               </Text>
             </Text>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

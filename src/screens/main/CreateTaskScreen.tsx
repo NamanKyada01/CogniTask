@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {View, StyleSheet, ScrollView} from 'react-native';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, StyleSheet, ScrollView, Animated} from 'react-native';
 import {Text, TextInput, Button, IconButton} from 'react-native-paper';
 import {useTranslation} from 'react-i18next';
 import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
@@ -17,6 +17,34 @@ const CreateTaskScreen = ({navigation}: any) => {
 
   const colors = ['#2E5BFF', '#FFB59B', '#B8C3FF', '#C24100', '#FFB4AB'];
   const [selectedColor, setSelectedColor] = useState(colors[0]);
+
+  // Animations
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+  const contentSlide = useRef(new Animated.Value(60)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(contentAnim, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.spring(contentSlide, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 14,
+          bounciness: 6,
+        }),
+      ]),
+    ]).start();
+  }, []);
 
   const handleCreate = async () => {
     if (!title || !user) return;
@@ -46,13 +74,18 @@ const CreateTaskScreen = ({navigation}: any) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, {opacity: headerAnim}]}>
         <IconButton icon="close" iconColor={COLORS.onSurface} onPress={() => navigation.goBack()} />
         <Text variant="headlineSmall" style={styles.title}>New Task</Text>
         <View style={{width: 48}} />
-      </View>
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <Animated.ScrollView
+        contentContainerStyle={styles.content}
+        style={{
+          opacity: contentAnim,
+          transform: [{translateY: contentSlide}],
+        }}>
         <TextInput
           label="What needs to be done?"
           value={title}
@@ -111,7 +144,7 @@ const CreateTaskScreen = ({navigation}: any) => {
           contentStyle={styles.saveButtonContent}>
           Save Task
         </Button>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 };
