@@ -1,46 +1,34 @@
 import React from 'react';
-import {StatusBar, View, StyleSheet} from 'react-native';
+import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AuthProvider} from './src/context/AuthContext';
-import {ThemeProvider} from './src/theme/ThemeContext';
-import {Text} from 'react-native-paper';
-
+import {ThemeProvider, useAppTheme} from './src/theme/ThemeContext';
 import {AppNavigator} from './src/navigation/AppNavigator';
+
+// Inner component so it can access theme context
+const AppContent = () => {
+  const {isDark, colors} = useAppTheme();
+  return (
+    <>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
+      <AppNavigator />
+    </>
+  );
+};
 
 function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <StatusBar barStyle="light-content" backgroundColor="#131314" />
-          <AppNavigator />
+          <AppContent />
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#131314',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    color: '#B8C3FF',
-    fontFamily: 'Manrope-Bold',
-    marginBottom: 8,
-  },
-  tagline: {
-    color: '#E5E2E3',
-    fontFamily: 'Inter-Regular',
-    opacity: 0.8,
-  },
-});
 
 export default App;

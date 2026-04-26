@@ -1,6 +1,7 @@
 import React, {useEffect, useRef} from 'react';
 import {View, StyleSheet, Animated, Pressable} from 'react-native';
 import {Text, Surface, IconButton} from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
 import {Task} from '../../types';
 
@@ -11,6 +12,19 @@ interface TaskCardProps {
   onDelete?: () => void;
 }
 
+const PRIORITY_COLORS: Record<string, string> = {
+  low: '#4CAF50',
+  medium: '#FF9800',
+  high: '#FF6B6B',
+};
+
+const REPEAT_ICONS: Record<string, string> = {
+  daily: 'repeat',
+  weekly: 'calendar-repeat',
+  custom: 'calendar-check',
+  none: '',
+};
+
 const TaskCard: React.FC<TaskCardProps> = ({task, onPress, onComplete, onDelete}) => {
   const mountAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -18,36 +32,29 @@ const TaskCard: React.FC<TaskCardProps> = ({task, onPress, onComplete, onDelete}
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(mountAnim, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: true,
-      }),
+      Animated.timing(mountAnim, {toValue: 1, duration: 350, useNativeDriver: true}),
+      Animated.timing(slideAnim, {toValue: 0, duration: 350, useNativeDriver: true}),
     ]).start();
   }, []);
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  };
+  const handlePressIn = () =>
+    Animated.spring(scaleAnim, {toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4}).start();
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  };
+  const handlePressOut = () =>
+    Animated.spring(scaleAnim, {toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4}).start();
+
+  const repeatIcon = REPEAT_ICONS[task.repeatType || 'none'];
+  const priorityColor = PRIORITY_COLORS[task.priority || 'medium'];
+  const isCompleted = task.status === 'completed';
+
+  const startStr = new Date(task.startTime.toDate()).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const endStr = new Date(task.endTime.toDate()).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <Animated.View
@@ -56,29 +63,59 @@ const TaskCard: React.FC<TaskCardProps> = ({task, onPress, onComplete, onDelete}
         transform: [{translateY: slideAnim}, {scale: scaleAnim}],
       }}>
       <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
-        <Surface style={styles.card} elevation={1}>
+        <Surface style={[styles.card, isCompleted && styles.completedCard]} elevation={1}>
+          {/* Left accent bar with priority color */}
           <View style={[styles.accent, {backgroundColor: task.color || COLORS.primary}]} />
+
           <View style={styles.content}>
             <View style={styles.left}>
-              <Text variant="titleMedium" style={styles.title}>{task.title}</Text>
-              <View style={styles.metadata}>
-                <Text variant="labelSmall" style={styles.category}>{task.category.toUpperCase()}</Text>
-                <Text variant="labelSmall" style={styles.time}>
-                  {new Date(task.startTime.toDate()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+              {/* Title row */}
+              <View style={styles.titleRow}>
+                {/* Priority dot */}
+                <View style={[styles.priorityDot, {backgroundColor: priorityColor}]} />
+                <Text
+                  variant="titleMedium"
+                  style={[styles.title, isCompleted && styles.completedText]}
+                  numberOfLines={1}>
+                  {task.title}
                 </Text>
               </View>
+
+              {/* Metadata row */}
+              <View style={styles.metadata}>
+                <Text variant="labelSmall" style={styles.category}>
+                  {task.category.toUpperCase()}
+                </Text>
+                <Text variant="labelSmall" style={styles.time}>
+                  {startStr} – {endStr}
+                </Text>
+                {task.duration > 0 && (
+                  <Text variant="labelSmall" style={styles.duration}>
+                    {task.duration}m
+                  </Text>
+                )}
+                {repeatIcon ? (
+                  <MaterialCommunityIcons
+                    name={repeatIcon}
+                    size={12}
+                    color={COLORS.onSurfaceVariant}
+                  />
+                ) : null}
+              </View>
             </View>
+
+            {/* Actions */}
             <View style={styles.right}>
               <IconButton
-                icon="check-circle-outline"
-                iconColor={task.status === 'completed' ? COLORS.primary : COLORS.onSurfaceVariant}
-                size={24}
+                icon={isCompleted ? 'check-circle' : 'check-circle-outline'}
+                iconColor={isCompleted ? COLORS.primary : COLORS.onSurfaceVariant}
+                size={22}
                 onPress={onComplete}
               />
               <IconButton
                 icon="delete-outline"
                 iconColor={COLORS.error}
-                size={24}
+                size={22}
                 onPress={onDelete}
               />
             </View>
@@ -96,38 +133,64 @@ const styles = StyleSheet.create({
     borderRadius: ROUNDNESS.md,
     marginBottom: SPACING.md,
     overflow: 'hidden',
-    height: 80,
+    minHeight: 72,
+  },
+  completedCard: {
+    opacity: 0.6,
   },
   accent: {
-    width: 6,
+    width: 5,
     height: '100%',
   },
   content: {
     flex: 1,
     flexDirection: 'row',
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.sm,
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  left: {
-    flex: 1,
+  left: {flex: 1},
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  priorityDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    flexShrink: 0,
   },
   title: {
     color: COLORS.onSurface,
     fontFamily: 'Inter-SemiBold',
+    flex: 1,
+  },
+  completedText: {
+    textDecorationLine: 'line-through',
+    opacity: 0.6,
   },
   metadata: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
     gap: SPACING.sm,
+    flexWrap: 'wrap',
   },
   category: {
     color: COLORS.primary,
     opacity: 0.8,
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
   time: {
     color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+  },
+  duration: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+    opacity: 0.7,
   },
   right: {
     flexDirection: 'row',

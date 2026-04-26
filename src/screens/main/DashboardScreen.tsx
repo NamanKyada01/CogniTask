@@ -2,46 +2,51 @@ import React, {useState, useEffect, useRef} from 'react';
 import {View, StyleSheet, ScrollView, ActivityIndicator, Animated} from 'react-native';
 import {Text, Surface, Avatar} from 'react-native-paper';
 import {useTranslation} from 'react-i18next';
-import {COLORS, SPACING, ROUNDNESS} from '../../theme/tokens';
+import {SPACING, ROUNDNESS} from '../../theme/tokens';
+import {useThemeColors} from '../../theme/ThemeContext';
 import {useAuth} from '../../context/AuthContext';
 import {DatabaseService} from '../../services/database';
 import {UserProfile, Task} from '../../types';
-import {AIService} from '../../services/ai';
 
-// Animated stat card with stagger support
-const StatCard = ({title, value, icon, color, delay = 0}: any) => {
+const DAILY_TIPS = [
+  'Focus on the small wins today. Every task completed brings you closer to your goal.',
+  'Break big tasks into smaller steps. Progress is progress, no matter the size.',
+  'Your future self will thank you for starting now.',
+  'Consistency beats perfection. Show up every day.',
+  'One focused hour beats three distracted ones.',
+];
+
+const getDailyTip = () => DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
+
+// Animated stat card
+const StatCard = ({title, value, icon, color, delay = 0, colors}: any) => {
   const anim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 400,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        delay,
-        useNativeDriver: true,
-      }),
+      Animated.timing(anim, {toValue: 1, duration: 400, delay, useNativeDriver: true}),
+      Animated.timing(slideAnim, {toValue: 0, duration: 400, delay, useNativeDriver: true}),
     ]).start();
   }, []);
 
   return (
-    <Animated.View
-      style={[
-        styles.statCardWrapper,
-        {opacity: anim, transform: [{translateY: slideAnim}]},
-      ]}>
-      <Surface style={styles.statCard} elevation={1}>
+    <Animated.View style={[{flex: 1}, {opacity: anim, transform: [{translateY: slideAnim}]}]}>
+      <Surface style={[styles.statCard, {backgroundColor: colors.surfaceLow}]} elevation={1}>
         <View style={styles.statHeader}>
-          <Avatar.Icon size={20} icon={icon} style={{backgroundColor: 'transparent'}} color={color || COLORS.primary} />
-          <Text variant="labelSmall" style={styles.statTitle}>{title.toUpperCase()}</Text>
+          <Avatar.Icon
+            size={20}
+            icon={icon}
+            style={{backgroundColor: 'transparent'}}
+            color={color || colors.primary}
+          />
+          <Text variant="labelSmall" style={[styles.statTitle, {color: colors.onSurfaceVariant}]}>
+            {title.toUpperCase()}
+          </Text>
         </View>
-        <Text variant="headlineMedium" style={styles.statValue}>{value}</Text>
+        <Text variant="headlineMedium" style={[styles.statValue, {color: colors.onSurface}]}>
+          {value}
+        </Text>
       </Surface>
     </Animated.View>
   );
@@ -50,15 +55,15 @@ const StatCard = ({title, value, icon, color, delay = 0}: any) => {
 const DashboardScreen = () => {
   const {t} = useTranslation();
   const {user} = useAuth();
+  const colors = useThemeColors();
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
-  const [dailyTip, setDailyTip] = useState('Loading daily insight...');
   const [loading, setLoading] = useState(true);
 
-  // Animation values
   const headerAnim = useRef(new Animated.Value(0)).current;
-  const aiCardAnim = useRef(new Animated.Value(0)).current;
-  const aiCardSlide = useRef(new Animated.Value(30)).current;
+  const tipCardAnim = useRef(new Animated.Value(0)).current;
+  const tipCardSlide = useRef(new Animated.Value(30)).current;
   const taskAnims = useRef<Animated.Value[]>([]).current;
 
   useEffect(() => {
@@ -66,54 +71,34 @@ const DashboardScreen = () => {
   }, [user]);
 
   const runEntranceAnimations = (taskCount: number) => {
-    // Ensure we have enough anim values for tasks
     while (taskAnims.length < taskCount) {
       taskAnims.push(new Animated.Value(0));
     }
-
     Animated.sequence([
-      Animated.timing(headerAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(aiCardAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
+      Animated.timing(headerAnim, {toValue: 1, duration: 500, useNativeDriver: true}),
+      Animated.parallel([
+        Animated.timing(tipCardAnim, {toValue: 1, duration: 400, useNativeDriver: true}),
+        Animated.timing(tipCardSlide, {toValue: 0, duration: 400, useNativeDriver: true}),
+      ]),
       Animated.stagger(
         80,
-        taskAnims.slice(0, taskCount).map(anim =>
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 350,
-            useNativeDriver: true,
-          }),
+        taskAnims.slice(0, taskCount).map(a =>
+          Animated.timing(a, {toValue: 1, duration: 350, useNativeDriver: true}),
         ),
       ),
     ]).start();
-
-    Animated.timing(aiCardSlide, {
-      toValue: 0,
-      duration: 400,
-      delay: 500,
-      useNativeDriver: true,
-    }).start();
   };
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [p, tasks, tip] = await Promise.all([
+      const [p, tasks] = await Promise.all([
         DatabaseService.getUserProfile(user!.uid),
         DatabaseService.getTasks(user!.uid),
-        AIService.getDailyTip(),
       ]);
       setProfile(p);
       const upcoming = tasks.filter(t => t.status === 'scheduled').slice(0, 3);
       setUpcomingTasks(upcoming);
-      setDailyTip(tip);
       runEntranceAnimations(upcoming.length);
     } catch (error) {
       console.error(error);
@@ -124,54 +109,61 @@ const DashboardScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
+      <View style={[styles.loader, {backgroundColor: colors.background}]}>
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, {backgroundColor: colors.background}]}
+      contentContainerStyle={styles.content}>
+
       {/* Header */}
       <Animated.View style={[styles.header, {opacity: headerAnim}]}>
         <View>
-          <Text variant="bodyLarge" style={styles.greeting}>
+          <Text variant="bodyLarge" style={[styles.greeting, {color: colors.onSurface}]}>
             {t('welcome')}, {profile?.firstName || 'User'}
           </Text>
-          <Text variant="labelMedium" style={styles.date}>
+          <Text variant="labelMedium" style={{color: colors.onSurfaceVariant}}>
             {new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}
           </Text>
         </View>
-        <Avatar.Icon size={48} icon="account" style={{backgroundColor: COLORS.surfaceHigh}} color={COLORS.primary} />
+        <Avatar.Icon
+          size={48}
+          icon="account"
+          style={{backgroundColor: colors.surfaceHigh}}
+          color={colors.primary}
+        />
       </Animated.View>
 
-      {/* Stats row — each card staggers in */}
+      {/* Stats */}
       <View style={styles.statsRow}>
-        <StatCard title="Today" value={upcomingTasks.length.toString()} icon="calendar-check" delay={0} />
-        <StatCard title="Level" value={profile?.level?.toString() || '1'} icon="star" delay={100} />
-        <StatCard title="Streak" value={profile?.streak?.toString() || '0'} icon="fire" color="#FF8C00" delay={200} />
+        <StatCard colors={colors} title="Today" value={upcomingTasks.length.toString()} icon="calendar-check" delay={0} />
+        <StatCard colors={colors} title="Level" value={profile?.level?.toString() || '1'} icon="star" delay={100} />
+        <StatCard colors={colors} title="Streak" value={profile?.streak?.toString() || '0'} icon="fire" color="#FF8C00" delay={200} />
       </View>
 
-      {/* AI Insight card */}
-      <Animated.View
-        style={{
-          opacity: aiCardAnim,
-          transform: [{translateY: aiCardSlide}],
-          marginBottom: SPACING.xl,
-        }}>
-        <Surface style={styles.aiCard} elevation={2}>
-          <Text variant="labelLarge" style={styles.aiTitle}>GROQ AI INSIGHT</Text>
-          <Text variant="bodyMedium" style={styles.aiText}>
-            "{dailyTip}"
+      {/* Daily tip card */}
+      <Animated.View style={{opacity: tipCardAnim, transform: [{translateY: tipCardSlide}], marginBottom: SPACING.xl}}>
+        <Surface style={[styles.tipCard, {backgroundColor: colors.surfaceHigh, borderColor: colors.primary + '33'}]} elevation={2}>
+          <Text variant="labelLarge" style={[styles.tipTitle, {color: colors.primary}]}>
+            DAILY FOCUS TIP
+          </Text>
+          <Text variant="bodyMedium" style={[styles.tipText, {color: colors.onSurface}]}>
+            "{getDailyTip()}"
           </Text>
         </Surface>
       </Animated.View>
 
+      {/* Upcoming tasks */}
       <View style={styles.sectionHeader}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>{t('upcoming')}</Text>
+        <Text variant="titleLarge" style={[styles.sectionTitle, {color: colors.onSurface}]}>
+          {t('upcoming')}
+        </Text>
       </View>
 
-      {/* Task items — staggered */}
       {upcomingTasks.map((task, index) => {
         const anim = taskAnims[index] || new Animated.Value(1);
         return (
@@ -179,20 +171,13 @@ const DashboardScreen = () => {
             key={task.id}
             style={{
               opacity: anim,
-              transform: [
-                {
-                  translateX: anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-30, 0],
-                  }),
-                },
-              ],
+              transform: [{translateX: anim.interpolate({inputRange: [0, 1], outputRange: [-30, 0]})}],
             }}>
-            <Surface style={styles.taskItem} elevation={1}>
+            <Surface style={[styles.taskItem, {backgroundColor: colors.surfaceLow}]} elevation={1}>
               <View style={[styles.taskAccent, {backgroundColor: task.color}]} />
               <View style={styles.taskInfo}>
-                <Text variant="titleMedium" style={styles.taskTitle}>{task.title}</Text>
-                <Text variant="labelSmall" style={styles.taskTime}>
+                <Text variant="titleMedium" style={{color: colors.onSurface}}>{task.title}</Text>
+                <Text variant="labelSmall" style={{color: colors.onSurfaceVariant}}>
                   {new Date(task.startTime.toDate()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
                 </Text>
               </View>
@@ -200,33 +185,38 @@ const DashboardScreen = () => {
           </Animated.View>
         );
       })}
+
+      {upcomingTasks.length === 0 && (
+        <View style={styles.empty}>
+          <Text variant="bodyMedium" style={{color: colors.onSurfaceVariant, opacity: 0.6}}>
+            No upcoming tasks — enjoy your day!
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: COLORS.background},
+  container: {flex: 1},
   content: {padding: SPACING.lg},
-  loader: {flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background},
+  loader: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   header: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xl},
-  greeting: {color: COLORS.onSurface, fontFamily: 'Manrope-Bold'},
-  date: {color: COLORS.onSurfaceVariant},
+  greeting: {fontFamily: 'Manrope-Bold'},
   statsRow: {flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl},
-  statCardWrapper: {flex: 1},
-  statCard: {padding: SPACING.md, borderRadius: ROUNDNESS.md, backgroundColor: COLORS.surfaceLow},
+  statCard: {padding: SPACING.md, borderRadius: ROUNDNESS.md},
   statHeader: {flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4},
-  statTitle: {color: COLORS.onSurfaceVariant, fontSize: 10, letterSpacing: 1},
-  statValue: {color: COLORS.onSurface, fontFamily: 'Manrope-Bold'},
-  aiCard: {padding: SPACING.lg, borderRadius: ROUNDNESS.lg, backgroundColor: COLORS.surfaceHigh, borderWidth: 1, borderColor: 'rgba(46, 91, 255, 0.2)'},
-  aiTitle: {color: COLORS.primary, letterSpacing: 2, marginBottom: SPACING.sm},
-  aiText: {color: COLORS.onSurface, fontFamily: 'Inter-Regular', lineHeight: 22, opacity: 0.9},
+  statTitle: {fontSize: 10, letterSpacing: 1},
+  statValue: {fontFamily: 'Manrope-Bold'},
+  tipCard: {padding: SPACING.lg, borderRadius: ROUNDNESS.lg, borderWidth: 1},
+  tipTitle: {letterSpacing: 2, marginBottom: SPACING.sm},
+  tipText: {fontFamily: 'Inter-Regular', lineHeight: 22, opacity: 0.9},
   sectionHeader: {marginBottom: SPACING.md},
-  sectionTitle: {color: COLORS.onSurface, fontFamily: 'Manrope-Bold'},
-  taskItem: {flexDirection: 'row', backgroundColor: COLORS.surfaceLow, borderRadius: ROUNDNESS.md, marginBottom: SPACING.sm, height: 64, overflow: 'hidden'},
+  sectionTitle: {fontFamily: 'Manrope-Bold'},
+  taskItem: {flexDirection: 'row', borderRadius: ROUNDNESS.md, marginBottom: SPACING.sm, height: 64, overflow: 'hidden'},
   taskAccent: {width: 4, height: '100%'},
   taskInfo: {flex: 1, paddingHorizontal: SPACING.md, justifyContent: 'center'},
-  taskTitle: {color: COLORS.onSurface},
-  taskTime: {color: COLORS.onSurfaceVariant},
+  empty: {alignItems: 'center', marginTop: SPACING.xl},
 });
 
 export default DashboardScreen;

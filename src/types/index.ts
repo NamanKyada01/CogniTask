@@ -9,11 +9,12 @@ export interface UserProfile {
   xp: number;
   streak: number;
   shieldActive: boolean;
-  habitDNA: {[key: string]: boolean}; // date string YYYY-MM-DD
+  habitDNA: {[key: string]: boolean};
   createdAt: FirebaseFirestoreTypes.FieldValue;
 }
 
 export type TaskStatus = 'scheduled' | 'in-progress' | 'completed' | 'missed';
+export type RepeatType = 'none' | 'daily' | 'weekly' | 'custom';
 
 export interface Task {
   id?: string;
@@ -22,12 +23,13 @@ export interface Task {
   category: string;
   startTime: FirebaseFirestoreTypes.Timestamp;
   endTime: FirebaseFirestoreTypes.Timestamp;
-  duration: number; // minutes
+  duration: number;           // minutes
   status: TaskStatus;
   priority: 'low' | 'medium' | 'high';
   xpAwarded: number;
   reminderMinutes: number;
-  repeat: string[]; // ['Mon', 'Tue', ...]
+  repeatType: RepeatType;
+  repeat: string[];           // ['Mon','Tue',...] used when repeatType='weekly'
   color: string;
   userId: string;
   createdAt: FirebaseFirestoreTypes.FieldValue;

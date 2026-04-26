@@ -1,7 +1,7 @@
 import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {IconButton} from 'react-native-paper';
-import {COLORS} from '../theme/tokens';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useAppTheme} from '../theme/ThemeContext';
 
 // Screens
 import DashboardScreen from '../screens/main/DashboardScreen';
@@ -13,28 +13,40 @@ import ProfileScreen from '../screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
+const TAB_ICONS: Record<string, [string, string]> = {
+  Dashboard: ['view-dashboard', 'view-dashboard-outline'],
+  Tasks:     ['clipboard-text', 'clipboard-text-outline'],
+  Focus:     ['timer', 'timer-outline'],
+  Calendar:  ['calendar', 'calendar-outline'],
+  Rewards:   ['trophy', 'trophy-outline'],
+  Profile:   ['account-circle', 'account-circle-outline'],
+};
+
 const MainTabNavigator = () => {
+  const {colors} = useAppTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.background,
+          backgroundColor: colors.surfaceLow,
           borderTopWidth: 0,
-          height: 70,
-          paddingBottom: 10,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 4,
         },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.onSurfaceVariant,
-        tabBarIcon: ({focused, color, size}) => {
-          let iconName = '';
-          if (route.name === 'Dashboard') iconName = focused ? 'view-dashboard' : 'view-dashboard-outline';
-          else if (route.name === 'Tasks') iconName = focused ? 'clipboard-text' : 'clipboard-text-outline';
-          else if (route.name === 'Focus') iconName = focused ? 'timer' : 'timer-outline';
-          else if (route.name === 'Calendar') iconName = focused ? 'calendar' : 'calendar-outline';
-          else if (route.name === 'Rewards') iconName = focused ? 'trophy' : 'trophy-outline';
-
-          return <IconButton icon={iconName} iconColor={color} size={size} />;
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.onSurfaceVariant,
+        tabBarIcon: ({focused, color}) => {
+          const [active, inactive] = TAB_ICONS[route.name] ?? ['circle', 'circle-outline'];
+          return (
+            <MaterialCommunityIcons
+              name={focused ? active : inactive}
+              size={24}
+              color={color}
+            />
+          );
         },
       })}>
       <Tab.Screen name="Dashboard" component={DashboardScreen} />

@@ -1,4 +1,4 @@
-export const COLORS = {
+export const DARK_COLORS = {
   background: '#131314',
   surface: '#131314',
   surfaceLow: '#1C1B1C',
@@ -22,6 +22,35 @@ export const COLORS = {
   glassDark: 'rgba(0, 0, 0, 0.3)',
   glowBlue: 'rgba(46, 91, 255, 0.4)',
 };
+
+export const LIGHT_COLORS = {
+  background: '#F4F4F8',
+  surface: '#F4F4F8',
+  surfaceLow: '#FFFFFF',
+  surfaceHigh: '#E8E8F0',
+  surfaceHighest: '#DCDCE8',
+  primary: '#2E5BFF',
+  primaryContainer: '#2E5BFF',
+  onPrimary: '#FFFFFF',
+  onPrimaryContainer: '#EFEFFF',
+  secondary: '#2E5BFF',
+  secondaryContainer: '#C8D0FF',
+  tertiary: '#C24100',
+  tertiaryContainer: '#FFB59B',
+  error: '#BA1A1A',
+  onSurface: '#1A1A2E',
+  onSurfaceVariant: '#44475A',
+  outline: '#767899',
+  outlineVariant: '#C4C5D9',
+  hyperBlue: '#2E5BFF',
+  glass: 'rgba(0, 0, 0, 0.04)',
+  glassDark: 'rgba(0, 0, 0, 0.08)',
+  glowBlue: 'rgba(46, 91, 255, 0.2)',
+};
+
+// Default export — screens that haven't been updated to use useThemeColors()
+// still get the dark palette so nothing breaks
+export const COLORS = DARK_COLORS;
 
 export const SPACING = {
   xs: 4,
