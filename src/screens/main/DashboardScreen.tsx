@@ -11,6 +11,7 @@ import {UserProfile, Task} from '../../types';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SmartRecapModal} from '../../components/SmartRecapModal';
+import {VictoryChart, VictoryBar, VictoryAxis} from 'victory-native';
 
 const DAILY_TIPS = [
   'Focus on the small wins today. Every task completed brings you closer to your goal.',
@@ -76,6 +77,7 @@ const DashboardScreen = () => {
   // Smart Recap
   const [recapVisible, setRecapVisible] = useState(false);
   const [recapData, setRecapData] = useState<any>(null);
+  const [weeklyChartData, setWeeklyChartData] = useState<{day: string, count: number}[]>([]);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const tipCardAnim = useRef(new Animated.Value(0)).current;
@@ -119,6 +121,18 @@ const DashboardScreen = () => {
       const todayTasks = getTasksForDate(tasks, today);
       const upcoming = todayTasks.filter(t => t.status !== 'completed').slice(0, 3);
       setUpcomingTasks(upcoming);
+      
+      const nowMs = Date.now();
+      const chartData = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(nowMs - i * 86400000);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayLabel = d.toLocaleDateString('en-US', {weekday: 'short'});
+        const tasksForDay = getTasksForDate(tasks, dateStr).filter(t => t.status === 'completed');
+        chartData.push({day: dayLabel, count: tasksForDay.length});
+      }
+      setWeeklyChartData(chartData);
+
       runEntranceAnimations(upcoming.length);
 
       // Fetch AI tip
@@ -208,7 +222,7 @@ const DashboardScreen = () => {
       </View>
 
       {/* Daily tip card */}
-      <Animated.View style={{opacity: tipCardAnim, transform: [{translateY: tipCardSlide}], marginBottom: SPACING.xl}}>
+      <Animated.View style={{opacity: tipCardAnim, transform: [{translateY: tipCardSlide}], marginBottom: SPACING.lg}}>
         <Surface style={[styles.tipCard, {backgroundColor: colors.surfaceHigh, borderColor: colors.primary + '33'}]} elevation={2}>
           <Text variant="labelLarge" style={[styles.tipTitle, {color: colors.primary}]}>
             DAILY FOCUS TIP
@@ -218,6 +232,33 @@ const DashboardScreen = () => {
           </Text>
         </Surface>
       </Animated.View>
+
+      {/* Chart */}
+      <Surface style={[styles.chartCard, {backgroundColor: colors.surfaceLow, marginBottom: SPACING.xl}]} elevation={1}>
+        <Text variant="titleMedium" style={{color: colors.onSurface, marginLeft: SPACING.md, marginTop: SPACING.md, fontFamily: 'Manrope-Bold'}}>
+          Activity (Last 7 Days)
+        </Text>
+        <View style={{height: 180, marginTop: -SPACING.md}}>
+          <VictoryChart height={220} domainPadding={{x: 20}} padding={{left: 30, right: 20, top: 20, bottom: 40}}>
+            <VictoryAxis 
+              style={{
+                axis: {stroke: 'transparent'}, 
+                tickLabels: {fill: colors.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter-Regular'}
+              }} 
+            />
+            <VictoryBar 
+              data={weeklyChartData} 
+              x="day" 
+              y="count"
+              cornerRadius={4}
+              style={{
+                data: {fill: colors.primary, width: 16}
+              }}
+              animate={{duration: 500}}
+            />
+          </VictoryChart>
+        </View>
+      </Surface>
 
       {/* Upcoming tasks */}
       <View style={styles.sectionHeader}>
@@ -280,6 +321,7 @@ const styles = StyleSheet.create({
   tipCard: {padding: SPACING.lg, borderRadius: ROUNDNESS.lg, borderWidth: 1},
   tipTitle: {letterSpacing: 2, marginBottom: SPACING.sm},
   tipText: {fontFamily: 'Inter-Regular', lineHeight: 22, opacity: 0.9},
+  chartCard: {borderRadius: ROUNDNESS.lg, overflow: 'hidden'},
   sectionHeader: {marginBottom: SPACING.md},
   sectionTitle: {fontFamily: 'Manrope-Bold'},
   taskItem: {flexDirection: 'row', borderRadius: ROUNDNESS.md, marginBottom: SPACING.sm, height: 64, overflow: 'hidden'},

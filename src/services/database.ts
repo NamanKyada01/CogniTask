@@ -143,6 +143,20 @@ export const DatabaseService = {
   },
 
   // --- Focus Sessions ---
+  getSessions: async (userId: string, daysAgo: number = 90): Promise<FocusSession[]> => {
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - daysAgo);
+
+    const snapshot = await firestore()
+      .collection(USERS_COLLECTION)
+      .doc(userId)
+      .collection('sessions')
+      .where('startTime', '>=', firestore.Timestamp.fromDate(fromDate))
+      .get();
+    
+    return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()})) as FocusSession[];
+  },
+
   addFocusSession: async (userId: string, session: Omit<FocusSession, 'id'>) => {
     await firestore()
       .collection(USERS_COLLECTION)

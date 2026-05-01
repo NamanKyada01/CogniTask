@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, StyleSheet, Dimensions, Animated, Alert} from 'react-native';
-import {Text, Button, IconButton, Modal, Portal} from 'react-native-paper';
+import {View, StyleSheet, Dimensions, Animated, Alert, AppState, AppStateStatus} from 'react-native';
+import {Text, Button, IconButton, Modal, Portal, Surface} from 'react-native-paper';
 import axios from 'axios';
 import {useThemeColors} from '../../theme/ThemeContext';
 import {SPACING} from '../../theme/tokens';
@@ -41,6 +41,10 @@ const FocusFlowScreen = () => {
   const [aiMessage, setAiMessage] = useState('');
   const [xpEarned, setXpEarned] = useState(0);
 
+  // AppState for background tracking
+  const appState = useRef(AppState.currentState);
+  const bgTimeRef = useRef<number | null>(null);
+
   // Animations
   const entranceAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -78,6 +82,29 @@ const FocusFlowScreen = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
+
+  // ── Background AppState tracking ──
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        if (isActive && bgTimeRef.current) {
+          const now = Date.now();
+          const elapsedSeconds = Math.floor((now - bgTimeRef.current) / 1000);
+          setTimeLeft(prev => Math.max(0, prev - elapsedSeconds));
+        }
+        bgTimeRef.current = null;
+      } else if (nextAppState.match(/inactive|background/)) {
+        if (isActive) {
+          bgTimeRef.current = Date.now();
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive]);
 
   // ── Pulse glow when active ──
   useEffect(() => {

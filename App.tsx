@@ -1,13 +1,19 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AuthProvider} from './src/context/AuthContext';
 import {ThemeProvider, useAppTheme} from './src/theme/ThemeContext';
 import {AppNavigator} from './src/navigation/AppNavigator';
+import {NotificationService} from './src/services/notifications';
 
 // Inner component so it can access theme context
 const AppContent = () => {
   const {isDark, colors} = useAppTheme();
+
+  useEffect(() => {
+    NotificationService.setupWeeklyRecap();
+  }, []);
+
   return (
     <>
       <StatusBar

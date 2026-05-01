@@ -9,6 +9,7 @@ import {UserProfile} from '../../types';
 import auth from '@react-native-firebase/auth';
 import {launchImageLibrary} from 'react-native-image-picker';
 import axios from 'axios';
+import {VictoryPie} from 'victory-native';
 
 const HEATMAP_COUNT = 7 * 24; // 7 days * 24 hours
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -34,14 +35,11 @@ const ProfileScreen = () => {
     Array.from({length: HEATMAP_COUNT}, () => new Animated.Value(0)),
   ).current;
   
-  // Dummy data generation for the 7x24 grid based on 90-day logic
-  const [heatmapData, setHeatmapData] = useState<number[]>([]);
-  
-  useEffect(() => {
-    // Generate placeholder densities (0-5)
-    const data = Array.from({length: HEATMAP_COUNT}, () => Math.floor(Math.random() * 6));
-    setHeatmapData(data);
-  }, []);
+  // Habit DNA and Pie Chart State
+  const [heatmapData, setHeatmapData] = useState<number[]>(Array(HEATMAP_COUNT).fill(0));
+  const [pieChartData, setPieChartData] = useState<{x: string, y: number}[]>([{x: 'Loading', y: 1}]);
+  const [insightTopCategory, setInsightTopCategory] = useState('-');
+  const [insightBestDay, setInsightBestDay] = useState('-');
 
   useEffect(() => {
     if (user) loadProfile();
@@ -67,6 +65,54 @@ const ProfileScreen = () => {
   const loadProfile = async () => {
     const p = await DatabaseService.getUserProfile(user!.uid);
     setProfile(p);
+    
+    // Load tasks for Pie Chart
+    const tasks = await DatabaseService.getTasks(user!.uid);
+    const categoryCounts: Record<string, number> = {};
+    let totalCompleted = 0;
+    tasks.forEach(t => {
+      if (t.status === 'completed') {
+        const cat = t.category || 'Other';
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        totalCompleted++;
+      }
+    });
+    
+    const pieData = Object.entries(categoryCounts).map(([x, y]) => ({x, y}));
+    if (pieData.length === 0) {
+      setPieChartData([{x: 'No Data', y: 1}]);
+    } else {
+      setPieChartData(pieData);
+      const topCat = Object.keys(categoryCounts).reduce((a, b) => categoryCounts[a] > categoryCounts[b] ? a : b);
+      setInsightTopCategory(topCat);
+    }
+    
+    // Load 90-day sessions for Habit DNA
+    const sessions = await DatabaseService.getSessions(user!.uid, 90);
+    const newHeatmap = Array(HEATMAP_COUNT).fill(0);
+    const dayCounts: Record<number, number> = {0:0,1:0,2:0,3:0,4:0,5:0,6:0};
+    
+    sessions.forEach(s => {
+      if (!s.startTime) return;
+      const d = s.startTime.toDate();
+      const day = d.getDay(); // 0-6
+      const hour = d.getHours(); // 0-23
+      const index = hour + (day * 24);
+      if (index < HEATMAP_COUNT) {
+        newHeatmap[index] += s.duration || 1; // accumulated minutes
+      }
+      dayCounts[day] += 1;
+    });
+    
+    const maxDensity = Math.max(...newHeatmap, 1);
+    const normalizedHeatmap = newHeatmap.map(v => Math.ceil((v / maxDensity) * 5));
+    setHeatmapData(normalizedHeatmap);
+    
+    if (sessions.length > 0) {
+      const bestDayIdx = Object.keys(dayCounts).reduce((a, b) => dayCounts[Number(a)] > dayCounts[Number(b)] ? a : b);
+      const fullDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      setInsightBestDay(fullDays[Number(bestDayIdx)]);
+    }
   };
 
   const handleAvatarUpload = async () => {
@@ -182,16 +228,35 @@ const ProfileScreen = () => {
           <View style={styles.insightsRow}>
             <Surface style={[styles.insightCard, {backgroundColor: colors.surfaceHigh}]} elevation={0}>
               <Text style={{fontSize: 9, color: colors.onSurfaceVariant}}>TOP CATEGORY</Text>
-              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>Study</Text>
+              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>{insightTopCategory}</Text>
             </Surface>
             <Surface style={[styles.insightCard, {backgroundColor: colors.surfaceHigh}]} elevation={0}>
               <Text style={{fontSize: 9, color: colors.onSurfaceVariant}}>BEST DAY</Text>
-              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>Tuesday</Text>
+              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>{insightBestDay}</Text>
             </Surface>
             <Surface style={[styles.insightCard, {backgroundColor: colors.surfaceHigh}]} elevation={0}>
-              <Text style={{fontSize: 9, color: colors.onSurfaceVariant}}>COMPLETION</Text>
-              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>92%</Text>
+              <Text style={{fontSize: 9, color: colors.onSurfaceVariant}}>LEVEL</Text>
+              <Text style={{fontSize: 14, color: colors.primary, fontWeight: 'bold'}}>{profile?.level || 1}</Text>
             </Surface>
+          </View>
+        </Surface>
+
+        {/* Category Breakdown */}
+        <Surface style={[styles.settingsGroup, {backgroundColor: colors.surfaceLow}]} elevation={1}>
+          <Text variant="labelLarge" style={[styles.groupTitle, {color: colors.primary}]}>
+            COMPLETED CATEGORIES
+          </Text>
+          <View style={{height: 200, alignItems: 'center', justifyContent: 'center'}}>
+            <VictoryPie
+              data={pieChartData}
+              colorScale={['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#8A2BE2', '#00FFFF']}
+              innerRadius={60}
+              height={220}
+              style={{
+                labels: {fill: colors.onSurface, fontSize: 12, fontFamily: 'Inter-SemiBold'}
+              }}
+              animate={{duration: 500}}
+            />
           </View>
         </Surface>
 

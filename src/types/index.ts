@@ -10,6 +10,7 @@ export interface UserProfile {
   streak: number;
   shieldActive: boolean;
   habitDNA: {[key: string]: boolean};
+  avatarUrl?: string;
   createdAt: FirebaseFirestoreTypes.FieldValue;
 }
 
