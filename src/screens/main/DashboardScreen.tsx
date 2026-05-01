@@ -1,11 +1,12 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {View, StyleSheet, ScrollView, ActivityIndicator, Animated} from 'react-native';
 import {Text, Surface, Avatar} from 'react-native-paper';
 import {useTranslation} from 'react-i18next';
+import {useFocusEffect} from '@react-navigation/native';
 import {SPACING, ROUNDNESS} from '../../theme/tokens';
 import {useThemeColors} from '../../theme/ThemeContext';
 import {useAuth} from '../../context/AuthContext';
-import {DatabaseService} from '../../services/database';
+import {DatabaseService, getTasksForDate} from '../../services/database';
 import {UserProfile, Task} from '../../types';
 
 const DAILY_TIPS = [
@@ -17,6 +18,13 @@ const DAILY_TIPS = [
 ];
 
 const getDailyTip = () => DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
+
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+};
 
 // Animated stat card
 const StatCard = ({title, value, icon, color, delay = 0, colors}: any) => {
@@ -66,9 +74,11 @@ const DashboardScreen = () => {
   const tipCardSlide = useRef(new Animated.Value(30)).current;
   const taskAnims = useRef<Animated.Value[]>([]).current;
 
-  useEffect(() => {
-    if (user) loadDashboardData();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) loadDashboardData();
+    }, [user]),
+  );
 
   const runEntranceAnimations = (taskCount: number) => {
     while (taskAnims.length < taskCount) {
@@ -97,7 +107,9 @@ const DashboardScreen = () => {
         DatabaseService.getTasks(user!.uid),
       ]);
       setProfile(p);
-      const upcoming = tasks.filter(t => t.status === 'scheduled').slice(0, 3);
+      const today = new Date().toISOString().split('T')[0];
+      const todayTasks = getTasksForDate(tasks, today);
+      const upcoming = todayTasks.filter(t => t.status !== 'completed').slice(0, 3);
       setUpcomingTasks(upcoming);
       runEntranceAnimations(upcoming.length);
     } catch (error) {
@@ -124,7 +136,7 @@ const DashboardScreen = () => {
       <Animated.View style={[styles.header, {opacity: headerAnim}]}>
         <View>
           <Text variant="bodyLarge" style={[styles.greeting, {color: colors.onSurface}]}>
-            {t('welcome')}, {profile?.firstName || 'User'}
+            {getGreeting()}, {profile?.firstName || 'User'} 👋
           </Text>
           <Text variant="labelMedium" style={{color: colors.onSurfaceVariant}}>
             {new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}
