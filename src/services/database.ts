@@ -81,6 +81,10 @@ export const DatabaseService = {
     return doc.exists() ? (doc.data() as UserProfile) : null;
   },
 
+  updateUserProfile: async (userId: string, data: Partial<UserProfile>) => {
+    await firestore().collection(USERS_COLLECTION).doc(userId).update(data);
+  },
+
   updateXP: async (userId: string, xpToAdd: number) => {
     const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
     await firestore().runTransaction(async transaction => {

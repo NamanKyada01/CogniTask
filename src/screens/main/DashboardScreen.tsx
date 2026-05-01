@@ -8,6 +8,9 @@ import {useThemeColors} from '../../theme/ThemeContext';
 import {useAuth} from '../../context/AuthContext';
 import {DatabaseService, getTasksForDate} from '../../services/database';
 import {UserProfile, Task} from '../../types';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {SmartRecapModal} from '../../components/SmartRecapModal';
 
 const DAILY_TIPS = [
   'Focus on the small wins today. Every task completed brings you closer to your goal.',
@@ -17,7 +20,7 @@ const DAILY_TIPS = [
   'One focused hour beats three distracted ones.',
 ];
 
-const getDailyTip = () => DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
+const getFallbackTip = () => DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -68,6 +71,11 @@ const DashboardScreen = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dailyTip, setDailyTip] = useState(getFallbackTip());
+  
+  // Smart Recap
+  const [recapVisible, setRecapVisible] = useState(false);
+  const [recapData, setRecapData] = useState<any>(null);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const tipCardAnim = useRef(new Animated.Value(0)).current;
@@ -112,6 +120,48 @@ const DashboardScreen = () => {
       const upcoming = todayTasks.filter(t => t.status !== 'completed').slice(0, 3);
       setUpcomingTasks(upcoming);
       runEntranceAnimations(upcoming.length);
+
+      // Fetch AI tip
+      try {
+        const cachedTip = await AsyncStorage.getItem('dailyTip');
+        const cacheDate = await AsyncStorage.getItem('dailyTipDate');
+        if (cachedTip && cacheDate === today) {
+          setDailyTip(cachedTip);
+        } else {
+          const res = await axios.post('http://localhost:5000/api/ai/suggest', {
+            completedThisWeek: 5, // Placeholder
+            missedThisWeek: 1, // Placeholder
+            topCategory: 'Study' // Placeholder
+          });
+          if (res.data.tip) {
+            setDailyTip(res.data.tip);
+            await AsyncStorage.setItem('dailyTip', res.data.tip);
+            await AsyncStorage.setItem('dailyTipDate', today);
+          }
+        }
+      } catch (e) {
+        console.log('Failed to fetch AI tip:', e);
+      }
+
+      // Check Smart Recap (Sunday after 20:00)
+      const now = new Date();
+      if (now.getDay() === 0 && now.getHours() >= 20) {
+        const lastRecap = await AsyncStorage.getItem('lastRecapDate');
+        if (lastRecap !== today) {
+          try {
+            const res = await axios.post('http://localhost:5000/api/ai/recap', {
+              sessions: [], // pass real data if available
+              tasks: tasks
+            });
+            setRecapData(res.data);
+            setRecapVisible(true);
+            await AsyncStorage.setItem('lastRecapDate', today);
+          } catch (e) {
+            console.log('Failed to fetch AI recap:', e);
+          }
+        }
+      }
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -164,7 +214,7 @@ const DashboardScreen = () => {
             DAILY FOCUS TIP
           </Text>
           <Text variant="bodyMedium" style={[styles.tipText, {color: colors.onSurface}]}>
-            "{getDailyTip()}"
+            "{dailyTip}"
           </Text>
         </Surface>
       </Animated.View>
@@ -205,6 +255,13 @@ const DashboardScreen = () => {
           </Text>
         </View>
       )}
+
+      <SmartRecapModal 
+        visible={recapVisible} 
+        onDismiss={() => setRecapVisible(false)} 
+        recapData={recapData} 
+        userName={profile?.firstName || 'User'} 
+      />
     </ScrollView>
   );
 };
